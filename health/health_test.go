@@ -2,7 +2,9 @@ package health_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +22,16 @@ func applied() (revision, digest string) {
 func passing(context.Context) error { return nil }
 
 func failing(context.Context) error { return errors.New("unreachable") }
+
+// slow answers only after five seconds, as a check of an unreachable host might.
+func slow(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(5 * time.Second):
+		return nil
+	}
+}
 
 func get(t *testing.T, handler http.Handler, path string) *httptest.ResponseRecorder {
 	t.Helper()
@@ -103,15 +115,6 @@ func TestRevisionAnswersTheAppliedRevisionAndDigest(t *testing.T) {
 }
 
 func TestACheckThatDoesNotAnswerInTimeFailsWithoutDelayingReadiness(t *testing.T) {
-	// slow answers only after five seconds, as a check of an unreachable host might.
-	slow := func(ctx context.Context) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(5 * time.Second):
-			return nil
-		}
-	}
 	handler := health.Handler(applied,
 		health.Check{Name: "database", Required: true, Run: passing},
 		health.Check{Name: "keycloak", Run: slow},
@@ -128,5 +131,31 @@ func TestACheckThatDoesNotAnswerInTimeFailsWithoutDelayingReadiness(t *testing.T
 	const body = `{"ready":true,"checks":[{"name":"database","required":true,"ok":true},{"name":"keycloak","required":false,"ok":false}]}`
 	if got := strings.TrimSpace(response.Body.String()); got != body {
 		t.Errorf("body = %s\nwant %s", got, body)
+	}
+}
+
+func TestAChecksAnswerInTimeCountsWhenAnEarlierCheckRunsOutOfTime(t *testing.T) {
+	checks := []health.Check{{Name: "keycloak", Run: slow}}
+	for i := range 16 {
+		checks = append(checks, health.Check{Name: fmt.Sprintf("store-%d", i), Required: true, Run: passing})
+	}
+
+	response := get(t, health.Handler(applied, checks...), "/readyz")
+	if response.Code != http.StatusOK {
+		t.Errorf("GET /readyz = %d, want 200", response.Code)
+	}
+	var body struct {
+		Checks []struct {
+			Name string `json:"name"`
+			OK   bool   `json:"ok"`
+		} `json:"checks"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body %q: %v", response.Body.String(), err)
+	}
+	for _, check := range body.Checks[1:] {
+		if !check.OK {
+			t.Errorf("%s reported failed, though it passed at once", check.Name)
+		}
 	}
 }

@@ -70,6 +70,13 @@ func run(ctx context.Context, checks []Check) []result {
 		case ok := <-passed[i]:
 			results[i].OK = ok
 		case <-ctx.Done():
+			// Past the deadline, a check that has answered still counts. Only one that has
+			// not answered has failed.
+			select {
+			case ok := <-passed[i]:
+				results[i].OK = ok
+			default:
+			}
 		}
 	}
 	return results
