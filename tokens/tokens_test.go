@@ -15,19 +15,20 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 
+	"github.com/ancyloce/contelys-cloud/libs/service/internal/identitytest"
 	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
 )
 
-func newVerifier(id *identity) *tokens.Verifier {
-	return tokens.New(tokens.Options{KeySet: id.keySet(), Client: http.DefaultClient, Deployable: "projects"})
+func newVerifier(id *identitytest.Identity) *tokens.Verifier {
+	return tokens.New(tokens.Options{KeySet: id.KeySet(), Client: http.DefaultClient, Deployable: "projects"})
 }
 
 func TestAnInternalTokenIsVerifiedAgainstIdentitysKeySet(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
 
-	got, err := newVerifier(id).Internal(context.Background(), sign(t, key, "internal+jwt", internalClaims()))
+	got, err := newVerifier(id).Internal(context.Background(), identitytest.Sign(t, key, "internal+jwt", internalClaims()))
 	if err != nil {
 		t.Fatalf("Internal: %v", err)
 	}
@@ -67,14 +68,14 @@ func altered(t *testing.T, raw string) string {
 }
 
 func TestAnInternalTokenThatBreaksARuleIsRefused(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
-	impostor := newKey(t, "internal-2026-11")
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	impostor := identitytest.NewKey(t, "internal-2026-11")
 	now := time.Now()
 
 	hmac, err := jose.NewSigner(
-		jose.SigningKey{Algorithm: jose.HS256, Key: jose.JSONWebKey{Key: []byte("a shared secret of thirty-two by"), KeyID: key.kid}},
+		jose.SigningKey{Algorithm: jose.HS256, Key: jose.JSONWebKey{Key: []byte("a shared secret of thirty-two by"), KeyID: key.KID}},
 		(&jose.SignerOptions{}).WithType("internal+jwt"),
 	)
 	if err != nil {
@@ -86,20 +87,20 @@ func TestAnInternalTokenThatBreaksARuleIsRefused(t *testing.T) {
 	}
 
 	refused := map[string]string{
-		"of the workload kind":         sign(t, key, "workload+jwt", internalClaims()),
-		"without a typ":                sign(t, key, "", internalClaims()),
-		"from another issuer":          sign(t, key, "internal+jwt", with("iss", "urn:contelys:keycloak")),
-		"for another audience":         sign(t, key, "internal+jwt", with("aud", "urn:contelys:projects")),
-		"expired":                      sign(t, key, "internal+jwt", with("exp", now.Add(-2*time.Minute).Unix())),
-		"without an expiry":            sign(t, key, "internal+jwt", with("exp", nil)),
-		"issued in the future":         sign(t, key, "internal+jwt", with("iat", now.Add(5*time.Minute).Unix())),
-		"altered":                      altered(t, sign(t, key, "internal+jwt", internalClaims())),
-		"signed by another key":        sign(t, impostor, "internal+jwt", internalClaims()),
+		"of the workload kind":         identitytest.Sign(t, key, "workload+jwt", internalClaims()),
+		"without a typ":                identitytest.Sign(t, key, "", internalClaims()),
+		"from another issuer":          identitytest.Sign(t, key, "internal+jwt", with("iss", "urn:contelys:keycloak")),
+		"for another audience":         identitytest.Sign(t, key, "internal+jwt", with("aud", "urn:contelys:projects")),
+		"expired":                      identitytest.Sign(t, key, "internal+jwt", with("exp", now.Add(-2*time.Minute).Unix())),
+		"without an expiry":            identitytest.Sign(t, key, "internal+jwt", with("exp", nil)),
+		"issued in the future":         identitytest.Sign(t, key, "internal+jwt", with("iat", now.Add(5*time.Minute).Unix())),
+		"altered":                      altered(t, identitytest.Sign(t, key, "internal+jwt", internalClaims())),
+		"signed by another key":        identitytest.Sign(t, impostor, "internal+jwt", internalClaims()),
 		"signed with HS256":            symmetric,
 		"not a token":                  "not.a.token",
-		"without a sub":                sign(t, key, "internal+jwt", with("sub", nil)),
-		"without a sid":                sign(t, key, "internal+jwt", with("sid", nil)),
-		"without an authority version": sign(t, key, "internal+jwt", with("authority_version", nil)),
+		"without a sub":                identitytest.Sign(t, key, "internal+jwt", with("sub", nil)),
+		"without a sid":                identitytest.Sign(t, key, "internal+jwt", with("sid", nil)),
+		"without an authority version": identitytest.Sign(t, key, "internal+jwt", with("authority_version", nil)),
 	}
 	verifier := newVerifier(id)
 	for name, raw := range refused {
@@ -131,29 +132,29 @@ func verifyAll(verifier *tokens.Verifier, raws []string) []error {
 }
 
 func TestARotatedKeyIsFetchedOnceAndAnUnknownKeyIsRefused(t *testing.T) {
-	id := newIdentity(t)
-	old := newKey(t, "internal-2026-10")
-	id.publish(old)
+	id := identitytest.New(t)
+	old := identitytest.NewKey(t, "internal-2026-10")
+	id.Publish(old)
 	verifier := newVerifier(id)
-	if _, err := verifier.Internal(context.Background(), sign(t, old, "internal+jwt", internalClaims())); err != nil {
+	if _, err := verifier.Internal(context.Background(), identitytest.Sign(t, old, "internal+jwt", internalClaims())); err != nil {
 		t.Fatalf("Internal with the published key: %v", err)
 	}
 
 	// Identity publishes a new key and then signs with it, as a rotation does.
 	pastTheBound()
-	fresh := newKey(t, "internal-2026-11")
-	id.publish(fresh)
+	fresh := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(fresh)
 	signed := make([]string, 20)
 	for i := range signed {
-		signed[i] = sign(t, fresh, "internal+jwt", internalClaims())
+		signed[i] = identitytest.Sign(t, fresh, "internal+jwt", internalClaims())
 	}
-	before := id.fetchCount()
+	before := id.Fetches()
 	for _, err := range verifyAll(verifier, signed) {
 		if err != nil {
 			t.Errorf("Internal with the new key: %v", err)
 		}
 	}
-	if got := id.fetchCount() - before; got != 1 {
+	if got := id.Fetches() - before; got != 1 {
 		t.Errorf("fetches for the new key = %d, want 1", got)
 	}
 
@@ -162,53 +163,53 @@ func TestARotatedKeyIsFetchedOnceAndAnUnknownKeyIsRefused(t *testing.T) {
 	pastTheBound()
 	forged := make([]string, 20)
 	for i := range forged {
-		forged[i] = sign(t, newKey(t, fmt.Sprintf("forged-%d", i)), "internal+jwt", internalClaims())
+		forged[i] = identitytest.Sign(t, identitytest.NewKey(t, fmt.Sprintf("forged-%d", i)), "internal+jwt", internalClaims())
 	}
-	before = id.fetchCount()
+	before = id.Fetches()
 	for _, err := range verifyAll(verifier, forged) {
 		if !errors.Is(err, tokens.ErrInvalid) {
 			t.Errorf("Internal with an unknown key = %v, want ErrInvalid", err)
 		}
 	}
-	if got := id.fetchCount() - before; got > 1 {
+	if got := id.Fetches() - before; got > 1 {
 		t.Errorf("fetches for a burst of unknown keys = %d, want at most 1", got)
 	}
 }
 
 func TestWithoutAKeySetVerificationIsUnavailableAndALaterOutageDoesNotStopIt(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
-	id.setDown(true)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	id.SetDown(true)
 	verifier := newVerifier(id)
 	ctx := context.Background()
-	raw := sign(t, key, "internal+jwt", internalClaims())
+	raw := identitytest.Sign(t, key, "internal+jwt", internalClaims())
 
 	if _, err := verifier.Internal(ctx, raw); !errors.Is(err, tokens.ErrUnavailable) {
 		t.Errorf("Internal without a key set = %v, want ErrUnavailable", err)
 	}
-	fetches := id.fetchCount()
+	fetches := id.Fetches()
 	if _, err := verifier.Internal(ctx, raw); !errors.Is(err, tokens.ErrUnavailable) {
 		t.Errorf("Internal again without a key set = %v, want ErrUnavailable", err)
 	}
-	if got := id.fetchCount(); got != fetches {
+	if got := id.Fetches(); got != fetches {
 		t.Errorf("fetches within the bound = %d, want %d", got, fetches)
 	}
 
-	id.setDown(false)
+	id.SetDown(false)
 	pastTheBound()
 	if _, err := verifier.Internal(ctx, raw); err != nil {
 		t.Fatalf("Internal once Identity answers: %v", err)
 	}
 
 	// A later outage of Identity does not stop verification with the cached key set.
-	id.setDown(true)
-	if _, err := verifier.Internal(ctx, sign(t, key, "internal+jwt", internalClaims())); err != nil {
+	id.SetDown(true)
+	if _, err := verifier.Internal(ctx, identitytest.Sign(t, key, "internal+jwt", internalClaims())); err != nil {
 		t.Errorf("Internal during an outage: %v", err)
 	}
 	// A token that names a key the verifier does not hold cannot be judged during the outage.
 	pastTheBound()
-	unknown := sign(t, newKey(t, "internal-2026-12"), "internal+jwt", internalClaims())
+	unknown := identitytest.Sign(t, identitytest.NewKey(t, "internal-2026-12"), "internal+jwt", internalClaims())
 	if _, err := verifier.Internal(ctx, unknown); !errors.Is(err, tokens.ErrUnavailable) {
 		t.Errorf("Internal with an unknown key during an outage = %v, want ErrUnavailable", err)
 	}
@@ -233,12 +234,12 @@ func workloadClaims(change func(map[string]any)) map[string]any {
 }
 
 func TestAWorkloadTokenIsAcceptedOnlyForAnOperationThatItLists(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "workload-2026-11")
-	id.publish(key)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "workload-2026-11")
+	id.Publish(key)
 	verifier := newVerifier(id)
 	ctx := context.Background()
-	raw := sign(t, key, "workload+jwt", workloadClaims(nil))
+	raw := identitytest.Sign(t, key, "workload+jwt", workloadClaims(nil))
 
 	got, err := verifier.Workload(ctx, raw, "getProject")
 	if err != nil {
@@ -252,15 +253,15 @@ func TestAWorkloadTokenIsAcceptedOnlyForAnOperationThatItLists(t *testing.T) {
 	}
 
 	refused := map[string]string{
-		"for another deployable": sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
+		"for another deployable": identitytest.Sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
 			c["aud"] = "urn:contelys:organization-access"
 		})),
-		"an internal token":    sign(t, key, "internal+jwt", internalClaims()),
-		"of the internal kind": sign(t, key, "internal+jwt", workloadClaims(nil)),
-		"expired": sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
+		"an internal token":    identitytest.Sign(t, key, "internal+jwt", internalClaims()),
+		"of the internal kind": identitytest.Sign(t, key, "internal+jwt", workloadClaims(nil)),
+		"expired": identitytest.Sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
 			c["exp"] = time.Now().Add(-time.Minute).Unix()
 		})),
-		"from a caller that is not a deployable": sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
+		"from a caller that is not a deployable": identitytest.Sign(t, key, "workload+jwt", workloadClaims(func(c map[string]any) {
 			c["sub"] = "notifications"
 		})),
 	}
@@ -274,12 +275,12 @@ func TestAWorkloadTokenIsAcceptedOnlyForAnOperationThatItLists(t *testing.T) {
 }
 
 func TestACallerThatGivesUpDoesNotSpoilTheFetchForTheOthers(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
-	id.setDelay(100 * time.Millisecond)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	id.SetDelay(100 * time.Millisecond)
 	verifier := newVerifier(id)
-	raw := sign(t, key, "internal+jwt", internalClaims())
+	raw := identitytest.Sign(t, key, "internal+jwt", internalClaims())
 
 	hurried, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -291,12 +292,12 @@ func TestACallerThatGivesUpDoesNotSpoilTheFetchForTheOthers(t *testing.T) {
 }
 
 func TestCallersWaitingOnAHangingKeySetShareOneFetchAndKeepTheirDeadline(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
-	id.setDelay(5 * time.Second)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	id.SetDelay(5 * time.Second)
 	verifier := newVerifier(id)
-	raw := sign(t, key, "internal+jwt", internalClaims())
+	raw := identitytest.Sign(t, key, "internal+jwt", internalClaims())
 
 	start := time.Now()
 	for _, err := range verifyAll(verifier, []string{raw, raw, raw}) {
@@ -307,7 +308,7 @@ func TestCallersWaitingOnAHangingKeySetShareOneFetchAndKeepTheirDeadline(t *test
 	if elapsed := time.Since(start); elapsed > 3*time.Second {
 		t.Errorf("three callers waited %s, want them answered within one bounded fetch", elapsed)
 	}
-	if got := id.fetchCount(); got != 1 {
+	if got := id.Fetches(); got != 1 {
 		t.Errorf("fetches = %d, want the callers to share 1", got)
 	}
 
@@ -320,5 +321,21 @@ func TestCallersWaitingOnAHangingKeySetShareOneFetchAndKeepTheirDeadline(t *test
 	}
 	if elapsed := time.Since(start); elapsed > time.Second {
 		t.Errorf("a caller with a deadline of 100ms waited %s", elapsed)
+	}
+}
+
+// internalClaims are the claims of a valid internal token issued now, as Identity's design
+// section 05 gives them.
+func internalClaims() map[string]any {
+	now := time.Now()
+	return map[string]any{
+		"iss":               "urn:contelys:identity",
+		"aud":               "urn:contelys:domain-services",
+		"sub":               "01JDZ8Q3V7XK2M4N6P8R0T2W4Y",
+		"sid":               "01JDZ8R5A1B3C5D7E9F1G3H5J7",
+		"authority_version": 3,
+		"iat":               now.Unix(),
+		"exp":               now.Add(60 * time.Second).Unix(),
+		"jti":               "req-7f3a",
 	}
 }

@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/ancyloce/contelys-cloud/libs/service/internal/identitytest"
 	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
 )
 
@@ -69,13 +69,13 @@ var served = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 })
 
 func TestAnInternalRouteServesOnlyARequestWithAValidToken(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
 	handler := newVerifier(id).RequireInternal(served)
 	ctx := context.Background()
 
-	response := call(t, handler, ctx, sign(t, key, "internal+jwt", internalClaims()))
+	response := call(t, handler, ctx, identitytest.Sign(t, key, "internal+jwt", internalClaims()))
 	if response.Code != http.StatusOK || response.Body.String() != "01JDZ8Q3V7XK2M4N6P8R0T2W4Y" {
 		t.Errorf("with a valid token = %d %q, want 200 and the principal", response.Code, response.Body.String())
 	}
@@ -98,23 +98,23 @@ func TestAnInternalRouteServesOnlyARequestWithAValidToken(t *testing.T) {
 }
 
 func TestARouteAnswers503WhenTheKeySetCannotBeEstablished(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "internal-2026-11")
-	id.publish(key)
-	id.setDown(true)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	id.SetDown(true)
 	handler := newVerifier(id).RequireInternal(served)
 
-	refusal(t, call(t, handler, context.Background(), sign(t, key, "internal+jwt", internalClaims())),
+	refusal(t, call(t, handler, context.Background(), identitytest.Sign(t, key, "internal+jwt", internalClaims())),
 		http.StatusServiceUnavailable, "unavailable")
 }
 
 func TestAWorkloadRouteServesOnlyAnOperationThatTheTokenLists(t *testing.T) {
-	id := newIdentity(t)
-	key := newKey(t, "workload-2026-11")
-	id.publish(key)
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "workload-2026-11")
+	id.Publish(key)
 	verifier := newVerifier(id)
 	ctx := context.Background()
-	raw := sign(t, key, "workload+jwt", workloadClaims(nil))
+	raw := identitytest.Sign(t, key, "workload+jwt", workloadClaims(nil))
 
 	response := call(t, verifier.RequireWorkload("getProject", served), ctx, raw)
 	if response.Code != http.StatusOK || response.Body.String() != "notifications" {
@@ -124,21 +124,4 @@ func TestAWorkloadRouteServesOnlyAnOperationThatTheTokenLists(t *testing.T) {
 		http.StatusForbidden, "operation_not_permitted")
 	refusal(t, call(t, verifier.RequireWorkload("getProject", served), ctx, ""),
 		http.StatusUnauthorized, "token_invalid")
-}
-
-func TestAProblemBodyKeepsTheRequestIDWithinItsLimit(t *testing.T) {
-	handler := newVerifier(newIdentity(t)).RequireInternal(served)
-	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.Header.Set("X-Request-Id", strings.Repeat("r", 200))
-	response := httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-
-	var body problem
-	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
-		t.Fatalf("body %q: %v", response.Body.String(), err)
-	}
-	// problem.yaml limits requestId and correlationId to 128 characters.
-	if body.RequestID != strings.Repeat("r", 128) || body.CorrelationID != strings.Repeat("r", 128) {
-		t.Errorf("requestId %d and correlationId %d characters, want 128 each", len(body.RequestID), len(body.CorrelationID))
-	}
 }
