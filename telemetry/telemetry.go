@@ -19,7 +19,8 @@ import (
 )
 
 // Setup makes the process trace with W3C Trace Context. It installs the propagator and a tracer
-// provider that names its spans after service and hands finished ones to exporter in batches.
+// provider whose resource names the process as service, its service.name, and which hands
+// finished spans to exporter in batches, or drops them when exporter is nil.
 // It returns a logger that writes one JSON line to out for each record, with the trace_id and
 // span_id of the context that the record is logged with, and the function that flushes the
 // spans and stops the provider.
