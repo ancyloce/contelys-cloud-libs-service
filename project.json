@@ -1,0 +1,19 @@
+{
+  "name": "libs-service",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "targets": {
+    "lint": {
+      "command": "go vet ./... && test -z \"$(gofmt -l .)\"",
+      "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
+    },
+    "test": {
+      "command": "go test ./...",
+      "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
+    },
+    "build": {
+      "command": "go build -o /dev/null ./...",
+      "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
+    }
+  }
+}
