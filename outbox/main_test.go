@@ -11,8 +11,8 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/pgtest"
-	"github.com/ancyloce/contelys-cloud/libs/service/outbox"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/pgtest"
+	"github.com/ancyloce/contelys-cloud-libs-service/outbox"
 )
 
 // topic is the event family of the tests, Identity's, in three partitions.

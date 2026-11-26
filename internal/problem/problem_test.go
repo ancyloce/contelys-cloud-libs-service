@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/problem"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/problem"
 )
 
 func TestAProblemBodyKeepsTheRequestIDWithinItsLimit(t *testing.T) {

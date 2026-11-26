@@ -74,7 +74,7 @@ func NewRelay(pool *pgxpool.Pool, opts RelayOptions) (*Relay, error) {
 		return nil, fmt.Errorf("outbox: %w", err)
 	}
 	r := &Relay{pool: pool, client: client, opts: opts}
-	_, err = otel.Meter("github.com/ancyloce/contelys-cloud/libs/service/outbox").Float64ObservableGauge(
+	_, err = otel.Meter("github.com/ancyloce/contelys-cloud-libs-service/outbox").Float64ObservableGauge(
 		"outbox.lag",
 		metric.WithUnit("s"),
 		metric.WithDescription("The age of the oldest event in the outbox that the relay has not published."),

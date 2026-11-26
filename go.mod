@@ -1,4 +1,4 @@
-module github.com/ancyloce/contelys-cloud/libs/service
+module github.com/ancyloce/contelys-cloud-libs-service
 
 go 1.27.0
 

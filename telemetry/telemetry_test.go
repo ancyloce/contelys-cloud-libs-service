@@ -13,7 +13,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/telemetry"
+	"github.com/ancyloce/contelys-cloud-libs-service/telemetry"
 )
 
 // keptSpans is the test's exporter. The in-memory exporter forgets its spans when it is shut

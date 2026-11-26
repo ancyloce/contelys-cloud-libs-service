@@ -1,0 +1,49 @@
+# The shared service library's pipeline (ADR 0069, and the repository layout standard,
+# Independence rule 4). Every run checks the library inside the parent repository, with its
+# submodules and the library's submodule at the commit under test. A version is a tag
+# v<major>.<minor>.<patch> on main; the library builds no image.
+name: pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      # Every repository is public, so the checkout needs no credential. The full depth reaches the
+      # submodules too, so the library comes with its history and tags, which the template's
+      # version check compares with HEAD.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ github.repository_owner }}/contelys-cloud
+          fetch-depth: 0
+          submodules: true
+          persist-credentials: false
+      - name: The library at the commit under test
+        run: |
+          git -C libs/service fetch --tags origin "$GITHUB_SHA"
+          git -C libs/service checkout --detach FETCH_HEAD
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
+        with:
+          go-version-file: libs/service/go.mod
+          cache-dependency-path: |
+            libs/service/go.sum
+            libs/service/template/go.sum
+      # test starts PostgreSQL in Docker for the outbox and the write barrier.
+      - name: Checks
+        env:
+          NX_NO_CLOUD: "true"
+        run: |
+          npm ci
+          npx nx run libs-service:lint
+          npx nx run libs-service:test
+          npx nx run libs-service:build

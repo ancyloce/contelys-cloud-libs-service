@@ -10,7 +10,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/outbox"
+	"github.com/ancyloce/contelys-cloud-libs-service/outbox"
 )
 
 func TestTheLagOfTheOutboxIsASignal(t *testing.T) {

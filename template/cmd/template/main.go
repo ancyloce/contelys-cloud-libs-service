@@ -19,9 +19,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ancyloce/contelys-cloud-libs-service/template/internal/interfaces/httpapi"
 	"github.com/ancyloce/contelys-cloud/libs/service/config"
 	"github.com/ancyloce/contelys-cloud/libs/service/telemetry"
-	"github.com/ancyloce/contelys-cloud/libs/service/template/internal/interfaces/httpapi"
 )
 
 // slug is the deployable's slug, which names the service in its telemetry, as service.name. A

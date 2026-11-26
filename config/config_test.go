@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/config"
+	"github.com/ancyloce/contelys-cloud-libs-service/config"
 )
 
 // settings stands for a domain service's own configuration. The send keys are among those that

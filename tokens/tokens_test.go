@@ -15,8 +15,8 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/go-jose/go-jose/v4/jwt"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/identitytest"
-	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/identitytest"
+	"github.com/ancyloce/contelys-cloud-libs-service/tokens"
 )
 
 func newVerifier(id *identitytest.Identity) *tokens.Verifier {

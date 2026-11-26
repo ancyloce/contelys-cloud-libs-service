@@ -7,8 +7,8 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/barrier"
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/pgtest"
+	"github.com/ancyloce/contelys-cloud-libs-service/barrier"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/pgtest"
 )
 
 func TestMain(m *testing.M) { pgtest.Main(m) }

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/problem"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/problem"
 )
 
 type contextKey int

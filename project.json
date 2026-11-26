@@ -6,7 +6,7 @@
     "lint": {
       "command": "go vet ./... && test -z \"$(gofmt -l .)\" && (cd template && go vet ./...) && bash tools/template-version.sh",
       "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } },
-      "inputs": ["own", { "runtime": "git tag --list 'libs/service/v*'" }]
+      "inputs": ["own", { "runtime": "git -C libs/service tag --list 'v*'" }]
     },
     "test": {
       "command": "go test ./... && (cd template && go test ./...)",

@@ -15,7 +15,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/migration"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/migration"
 )
 
 //go:embed migrations/*.sql

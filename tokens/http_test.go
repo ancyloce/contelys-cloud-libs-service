@@ -9,8 +9,8 @@ import (
 
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/identitytest"
-	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/identitytest"
+	"github.com/ancyloce/contelys-cloud-libs-service/tokens"
 )
 
 // problem is the shared contracts' problem body, openapi/shared/problem.yaml.

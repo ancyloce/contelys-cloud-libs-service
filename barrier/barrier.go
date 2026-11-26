@@ -14,7 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/migration"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/migration"
 )
 
 // ErrRevoked is a protected write whose caller carries an authority version below the stored

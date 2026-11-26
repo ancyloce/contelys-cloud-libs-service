@@ -10,8 +10,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 
+	"github.com/ancyloce/contelys-cloud-libs-service/template/internal/interfaces/httpapi"
 	"github.com/ancyloce/contelys-cloud/libs/service/telemetry"
-	"github.com/ancyloce/contelys-cloud/libs/service/template/internal/interfaces/httpapi"
 )
 
 // keptSpans keeps the in-memory exporter's spans across the provider's shutdown, which flushes.

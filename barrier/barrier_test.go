@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/barrier"
+	"github.com/ancyloce/contelys-cloud-libs-service/barrier"
 )
 
 func TestAWriteBelowTheInstalledMinimumIsRefused(t *testing.T) {

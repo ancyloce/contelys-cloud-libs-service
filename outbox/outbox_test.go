@@ -18,8 +18,8 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/pgtest"
-	"github.com/ancyloce/contelys-cloud/libs/service/outbox"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/pgtest"
+	"github.com/ancyloce/contelys-cloud-libs-service/outbox"
 )
 
 const principal = "01JDZ8Q3V7XK2M4N6P8R0T2W4Y"

@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/problem"
-	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/problem"
+	"github.com/ancyloce/contelys-cloud-libs-service/tokens"
 )
 
 // operation is the operationId of the shared operation, which a workload token must permit.

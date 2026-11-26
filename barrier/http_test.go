@@ -10,9 +10,9 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/barrier"
-	"github.com/ancyloce/contelys-cloud/libs/service/internal/identitytest"
-	"github.com/ancyloce/contelys-cloud/libs/service/tokens"
+	"github.com/ancyloce/contelys-cloud-libs-service/barrier"
+	"github.com/ancyloce/contelys-cloud-libs-service/internal/identitytest"
+	"github.com/ancyloce/contelys-cloud-libs-service/tokens"
 )
 
 // service is a registered domain service, Projects, that serves the shared operation.

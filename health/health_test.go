@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/health"
+	"github.com/ancyloce/contelys-cloud-libs-service/health"
 )
 
 // applied stands for the configuration store: it reports the revision and digest in force.
