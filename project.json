@@ -4,15 +4,16 @@
   "projectType": "library",
   "targets": {
     "lint": {
-      "command": "go vet ./... && test -z \"$(gofmt -l .)\"",
-      "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
+      "command": "go vet ./... && test -z \"$(gofmt -l .)\" && (cd template && go vet ./...) && bash tools/template-version.sh",
+      "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } },
+      "inputs": ["own", { "runtime": "git tag --list 'libs/service/v*'" }]
     },
     "test": {
-      "command": "go test ./...",
+      "command": "go test ./... && (cd template && go test ./...)",
       "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
     },
     "build": {
-      "command": "go build -o /dev/null ./...",
+      "command": "go build -o /dev/null ./... && (cd template && go build -o /dev/null ./...)",
       "options": { "cwd": "{projectRoot}", "env": { "GOWORK": "off" } }
     }
   }
