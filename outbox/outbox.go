@@ -8,17 +8,14 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
-	"github.com/pressly/goose/v3/database"
-	"github.com/pressly/goose/v3/lock"
 	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/ancyloce/contelys-cloud/libs/service/internal/migration"
 )
 
 //go:embed migrations/*.sql
@@ -35,25 +32,7 @@ const (
 
 // Migrate creates or updates the outbox's tables in the service's database.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
-	files, err := fs.Sub(migrations, "migrations")
-	if err != nil {
-		return fmt.Errorf("outbox: %w", err)
-	}
-	store, err := database.NewStore(database.DialectPostgres, versionTable)
-	if err != nil {
-		return fmt.Errorf("outbox: %w", err)
-	}
-	locker, err := lock.NewPostgresSessionLocker(lock.WithLockID(migrationLock))
-	if err != nil {
-		return fmt.Errorf("outbox: %w", err)
-	}
-	db := stdlib.OpenDBFromPool(pool)
-	defer db.Close()
-	provider, err := goose.NewProvider("", db, files, goose.WithStore(store), goose.WithSessionLocker(locker))
-	if err != nil {
-		return fmt.Errorf("outbox: %w", err)
-	}
-	if _, err := provider.Up(ctx); err != nil {
+	if err := migration.Up(ctx, pool, migrations, versionTable, migrationLock); err != nil {
 		return fmt.Errorf("outbox: %w", err)
 	}
 	return nil

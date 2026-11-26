@@ -2,87 +2,32 @@ package outbox_test
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/testcontainers/testcontainers-go"
-	"github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/kmsg"
 
+	"github.com/ancyloce/contelys-cloud/libs/service/internal/pgtest"
 	"github.com/ancyloce/contelys-cloud/libs/service/outbox"
 )
-
-// postgresImage is the PostgreSQL that the tests run, pinned by its digest.
-const postgresImage = "postgres:18-alpine@sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71"
 
 // topic is the event family of the tests, Identity's, in three partitions.
 const topic = "identity.principal"
 
-// admin is the address of the container's own database, from which each test creates its own.
-var admin string
-
-func TestMain(m *testing.M) {
-	ctx := context.Background()
-	container, err := postgres.Run(ctx, postgresImage,
-		postgres.WithDatabase("outbox"), postgres.WithUsername("outbox"), postgres.WithPassword("outbox"),
-		postgres.BasicWaitStrategies())
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "start PostgreSQL:", err)
-		os.Exit(1)
-	}
-	admin, err = container.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		fmt.Fprintln(os.Stderr, "PostgreSQL's address:", err)
-		os.Exit(1)
-	}
-	code := m.Run()
-	_ = testcontainers.TerminateContainer(container)
-	os.Exit(code)
-}
-
-var databases atomic.Int64
+func TestMain(m *testing.M) { pgtest.Main(m) }
 
 // newDatabase creates a database of the test's own, as a domain service's database, and applies
 // the outbox's migrations to it.
 func newDatabase(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	pool := emptyDatabase(t)
+	pool := pgtest.Database(t)
 	if err := outbox.Migrate(context.Background(), pool); err != nil {
 		t.Fatalf("Migrate: %v", err)
 	}
-	return pool
-}
-
-// emptyDatabase creates a database of the test's own, without the outbox's tables.
-func emptyDatabase(t *testing.T) *pgxpool.Pool {
-	t.Helper()
-	ctx := context.Background()
-	adminPool, err := pgxpool.New(ctx, admin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer adminPool.Close()
-	name := fmt.Sprintf("service_%d", databases.Add(1))
-	if _, err := adminPool.Exec(ctx, "CREATE DATABASE "+name); err != nil {
-		t.Fatal(err)
-	}
-	config, err := pgxpool.ParseConfig(admin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	config.ConnConfig.Database = name
-	pool, err := pgxpool.NewWithConfig(ctx, config)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Close)
 	return pool
 }
 

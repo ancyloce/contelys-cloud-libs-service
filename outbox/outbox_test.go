@@ -18,6 +18,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
+	"github.com/ancyloce/contelys-cloud/libs/service/internal/pgtest"
 	"github.com/ancyloce/contelys-cloud/libs/service/outbox"
 )
 
@@ -214,7 +215,7 @@ func TestARelayNeedsItsSourceItsBrokersAndAPause(t *testing.T) {
 
 func TestInstancesThatStartTogetherMigrateTheOutboxOnce(t *testing.T) {
 	for round := range 5 {
-		pool := emptyDatabase(t)
+		pool := pgtest.Database(t)
 		errs := make(chan error, 4)
 		for range 4 {
 			go func() { errs <- outbox.Migrate(context.Background(), pool) }()
