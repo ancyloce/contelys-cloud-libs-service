@@ -3,6 +3,7 @@ module github.com/ancyloce/contelys-cloud/libs/service
 go 1.27.0
 
 require (
+	github.com/go-jose/go-jose/v4 v4.1.9
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0
 	go.opentelemetry.io/otel v1.44.0
 	go.opentelemetry.io/otel/sdk v1.44.0
