@@ -6,8 +6,8 @@ package httpapi
 import (
 	"net/http"
 
-	"github.com/ancyloce/contelys-cloud/libs/service/health"
-	"github.com/ancyloce/contelys-cloud/libs/service/telemetry"
+	"github.com/ancyloce/contelys-cloud-libs-service/health"
+	"github.com/ancyloce/contelys-cloud-libs-service/telemetry"
 )
 
 // Router routes the service's HTTP requests on the standard library's router.
