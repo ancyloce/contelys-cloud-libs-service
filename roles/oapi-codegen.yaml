@@ -1,0 +1,16 @@
+# The client of Organization Access's role question and scopes question, generated from its
+# contract in the contracts module (ADR 0056). The contract refers to the shared problem body,
+# whose fields its OrganizationAccessProblem merges, and to the shared operation of ADR 0068, so
+# both shared files map to this package.
+package: gen
+generate:
+  client: true
+  models: true
+output-options:
+  include-operation-ids:
+    - getRole
+    - listScopes
+import-mapping:
+  ../shared/problem.yaml: "-"
+  ../shared/minimum-authority-version.yaml: "-"
+output: internal/gen/organizationaccess.gen.go
