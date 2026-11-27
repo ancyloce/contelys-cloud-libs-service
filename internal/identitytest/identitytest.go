@@ -246,6 +246,22 @@ func sign(k Key, typ string, claims map[string]any) (string, error) {
 	return jwt.Signed(signer).Claims(claims).Serialize()
 }
 
+// Internal returns the claims of an internal token that Identity issued now for a request of
+// principal, with the authority version 3, and lasting 60 seconds, as Identity's do.
+func Internal(principal string) map[string]any {
+	now := time.Now()
+	return map[string]any{
+		"iss":               "urn:contelys:identity",
+		"aud":               "urn:contelys:domain-services",
+		"sub":               principal,
+		"sid":               "01JDZ8R5A1B3C5D7E9F1G3H5J7",
+		"authority_version": 3,
+		"iat":               now.Unix(),
+		"exp":               now.Add(60 * time.Second).Unix(),
+		"jti":               "req-7f3a",
+	}
+}
+
 // Workload returns the claims of a workload token that Identity issued now to the deployable
 // caller for calls to target, permitting operations.
 func Workload(caller, target string, operations ...string) map[string]any {

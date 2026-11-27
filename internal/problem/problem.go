@@ -21,9 +21,12 @@ type body struct {
 	CorrelationID string `json:"correlationId"`
 }
 
-// UnavailableTitle is the one title of the code unavailable, which every part of the library that
-// answers it shares.
-const UnavailableTitle = "The service cannot complete the request now."
+// The one title of each code that more than one part of the library answers, which they share.
+const (
+	UnavailableTitle    = "The service cannot complete the request now."
+	TokenInvalidTitle   = "The token is missing, expired, altered, of the wrong kind, or for another audience."
+	InvalidRequestTitle = "The request does not match the contract."
+)
 
 // idLimit is the most characters that the problem body gives requestId and correlationId.
 const idLimit = 128
