@@ -64,7 +64,7 @@ func Handler(pool *pgxpool.Pool, verifier *tokens.Verifier) http.Handler {
 }
 
 func invalid(w http.ResponseWriter, r *http.Request) {
-	problem.Write(w, r, http.StatusBadRequest, "invalid_request", "The request does not match the contract.", "")
+	problem.Write(w, r, http.StatusBadRequest, "invalid_request", problem.InvalidRequestTitle, "")
 }
 
 // readMinimum reads the body MinimumAuthorityVersionInstallation of the contract: one JSON object
