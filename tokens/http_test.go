@@ -3,8 +3,10 @@ package tokens_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"go.opentelemetry.io/otel/trace"
@@ -124,4 +126,49 @@ func TestAWorkloadRouteServesOnlyAnOperationThatTheTokenLists(t *testing.T) {
 		http.StatusForbidden, "operation_not_permitted")
 	refusal(t, call(t, verifier.RequireWorkload("getProject", served), ctx, ""),
 		http.StatusUnauthorized, "token_invalid")
+}
+
+func TestACallMadeForACallerCarriesTheCallersInternalToken(t *testing.T) {
+	id := identitytest.New(t)
+	key := identitytest.NewKey(t, "internal-2026-11")
+	id.Publish(key)
+	var received atomic.Int32
+	var authorization atomic.Value
+	neighbour := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		received.Add(1)
+		authorization.Store(r.Header.Get("Authorization"))
+	}))
+	t.Cleanup(neighbour.Close)
+	client := &http.Client{Transport: tokens.PassOn(nil)}
+	ask := func(ctx context.Context) error {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, neighbour.URL, nil)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", "Bearer someone-else")
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+		return response.Body.Close()
+	}
+	handler := newVerifier(id).RequireInternal(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := ask(r.Context()); err != nil {
+			t.Errorf("the call for the caller: %v", err)
+		}
+	}))
+
+	raw := identitytest.Sign(t, key, "internal+jwt", internalClaims())
+	call(t, handler, context.Background(), raw)
+	if got, _ := authorization.Load().(string); got != "Bearer "+raw {
+		t.Errorf("the neighbour got Authorization %q, want the caller's internal token", got)
+	}
+
+	err := ask(context.Background())
+	if !errors.Is(err, tokens.ErrNoInternalToken) {
+		t.Errorf("a call outside an admitted request = %v, want ErrNoInternalToken", err)
+	}
+	if received.Load() != 1 {
+		t.Errorf("the neighbour received %d calls, want only the one made for the caller", received.Load())
+	}
 }
