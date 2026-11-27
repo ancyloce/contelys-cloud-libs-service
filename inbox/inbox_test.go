@@ -9,22 +9,18 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/ancyloce/contelys-cloud-libs-service/inbox"
 )
 
 const invitation = "01JDZ8Q3V7XK2M4N6P8R0T2W4Y"
 
-func TestARecordIsHandedOverWithItsCloudEventsIdentityAndTraceAndItsEffectCommits(t *testing.T) {
+func TestARecordIsHandedOverWithItsCloudEventsIdentityAndItsEffectCommits(t *testing.T) {
 	pool := newDatabase(t)
 	k := newKafka(t, 3)
 	issued := newEvent(invitation, "issued")
-	issued.traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 	var got handled
-	var traceID trace.TraceID
 	run(t, pool, k.options(), func(ctx context.Context, e inbox.Event) (inbox.Effect, error) {
-		traceID = trace.SpanContextFromContext(ctx).TraceID()
 		got.add(e)
 		return record(e), nil
 	})
@@ -38,9 +34,6 @@ func TestARecordIsHandedOverWithItsCloudEventsIdentityAndTraceAndItsEffectCommit
 	}
 	if string(e.Key) != invitation || string(e.Value) != "issued" {
 		t.Errorf("key and value = %q %q, want the record's", e.Key, e.Value)
-	}
-	if traceID.String() != "4bf92f3577b34da6a3ce929d0e0e4736" {
-		t.Errorf("trace = %s, want the producer's from traceparent", traceID)
 	}
 	if ids := effects(t, pool); !slices.Equal(ids, []string{issued.id}) {
 		t.Errorf("effects = %v, want the one event's", ids)

@@ -94,10 +94,11 @@ type Event struct {
 type Effect func(ctx context.Context, tx pgx.Tx) error
 
 // Handler decides what an event changes. It is called outside any transaction, so it may ask a
-// neighbour first, and its context carries the producer's trace. It returns the event's effect,
-// or nil to skip the event, which commits its inbox marker alone. An error that wraps
-// ErrUndecodable sends the record to the dead letters. Any other error leaves the record
-// uncommitted, and the same record is handed over again after the consumer's backoff.
+// neighbour first, and its context carries the consumer span, which links to the producer's
+// span. It returns the event's effect, or nil to skip the event, which commits its inbox marker
+// alone. An error that wraps ErrUndecodable sends the record to the dead letters. Any other error
+// leaves the record uncommitted, and the same record is handed over again after the consumer's
+// backoff.
 type Handler func(ctx context.Context, e Event) (Effect, error)
 
 // ErrUndecodable is what a handler wraps when it cannot decode a record's value as the message
@@ -456,20 +457,30 @@ func (c *Consumer) consume(ctx context.Context, record *kgo.Record) error {
 	if err != nil {
 		return c.deadLetter(ctx, record, err.Error())
 	}
+	// The event is consumed in a trace of its own, whose consumer span links to the producer's span
+	// from traceparent, as a job is worked (issue 11 of the phase 1 platform).
 	carrier := propagation.MapCarrier{}
 	for _, h := range record.Headers {
 		if h.Key == "traceparent" || h.Key == "tracestate" {
 			carrier[h.Key] = string(h.Value)
 		}
 	}
-	ctx = propagation.TraceContext{}.Extract(ctx, carrier)
-	ctx, span := c.tracer.Start(ctx, record.Topic+" process", trace.WithSpanKind(trace.SpanKindConsumer),
+	opts := []trace.SpanStartOption{
+		trace.WithNewRoot(),
+		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(
 			attribute.String("messaging.system", "kafka"),
+			attribute.String("messaging.operation.name", "process"),
+			attribute.String("messaging.operation.type", "process"),
 			attribute.String("messaging.destination.name", record.Topic),
 			attribute.String("messaging.consumer.group.name", c.opts.Subscriber+"."+c.opts.Subscription),
 			attribute.String("messaging.message.id", e.ID),
-		))
+		),
+	}
+	if producer := trace.SpanContextFromContext(propagation.TraceContext{}.Extract(context.Background(), carrier)); producer.IsValid() {
+		opts = append(opts, trace.WithLinks(trace.Link{SpanContext: producer}))
+	}
+	ctx, span := c.tracer.Start(ctx, "process "+record.Topic, opts...)
 	defer span.End()
 
 	var repeat bool
