@@ -327,15 +327,5 @@ func TestCallersWaitingOnAHangingKeySetShareOneFetchAndKeepTheirDeadline(t *test
 // internalClaims are the claims of a valid internal token issued now, as Identity's design
 // section 05 gives them.
 func internalClaims() map[string]any {
-	now := time.Now()
-	return map[string]any{
-		"iss":               "urn:contelys:identity",
-		"aud":               "urn:contelys:domain-services",
-		"sub":               "01JDZ8Q3V7XK2M4N6P8R0T2W4Y",
-		"sid":               "01JDZ8R5A1B3C5D7E9F1G3H5J7",
-		"authority_version": 3,
-		"iat":               now.Unix(),
-		"exp":               now.Add(60 * time.Second).Unix(),
-		"jti":               "req-7f3a",
-	}
+	return identitytest.Internal("01JDZ8Q3V7XK2M4N6P8R0T2W4Y")
 }
