@@ -1,5 +1,7 @@
 // Package tokens verifies the internal tokens and the workload tokens that Identity issues,
-// against Identity's key set, which it fetches and caches (ADR 0052).
+// against Identity's key set, which it fetches and caches (ADR 0052). Its Holder is the caller's
+// side of a call with no user: it requests a workload token for each target, keeps it and
+// presents it (ADR 0040).
 package tokens
 
 import (
@@ -41,8 +43,9 @@ const (
 	// refreshInterval bounds how often a token with an unknown kid makes the verifier fetch the
 	// key set again, so tokens that name invented keys cannot flood Identity.
 	refreshInterval = time.Second
-	// fetchTimeout bounds one fetch of the key set.
-	fetchTimeout = 2 * time.Second
+	// requestTimeout bounds one request to Identity: a fetch of the key set, or a request for a
+	// workload token.
+	requestTimeout = 2 * time.Second
 )
 
 // Options say where the key set is and who is verifying.
@@ -85,16 +88,9 @@ type Verifier struct {
 
 	// mu guards the fetch in flight, and the time and the outcome of the last one.
 	mu          sync.Mutex
-	inFlight    *fetching
+	inFlight    *flight[*jose.JSONWebKeySet]
 	lastAttempt time.Time
 	lastFailed  bool
-}
-
-// fetching is one fetch of the key set, whose outcome every caller that waits for it shares.
-type fetching struct {
-	done chan struct{}
-	keys *jose.JSONWebKeySet
-	err  error
 }
 
 // New returns a verifier. It fetches nothing until it verifies its first token.
@@ -199,29 +195,25 @@ func (v *Verifier) key(ctx context.Context, kid string) (any, error) {
 			}
 			return nil, fmt.Errorf("tokens: %w: unknown key %q", ErrInvalid, kid)
 		}
-		call = &fetching{done: make(chan struct{})}
+		call = newFlight[*jose.JSONWebKeySet]()
 		v.inFlight = call
 		go v.refresh(context.WithoutCancel(ctx), call)
 	}
 	v.mu.Unlock()
 
-	select {
-	case <-call.done:
-	case <-ctx.Done():
-		return nil, fmt.Errorf("tokens: %w: %v", ErrUnavailable, ctx.Err())
+	keys, err := call.wait(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("tokens: %w: %v", ErrUnavailable, err)
 	}
-	if call.err != nil {
-		return nil, fmt.Errorf("tokens: %w: %v", ErrUnavailable, call.err)
-	}
-	if key := find(call.keys, kid); key != nil {
+	if key := find(keys, kid); key != nil {
 		return key, nil
 	}
 	return nil, fmt.Errorf("tokens: %w: unknown key %q", ErrInvalid, kid)
 }
 
-// refresh fetches the key set for call, within fetchTimeout, and records its outcome.
-func (v *Verifier) refresh(ctx context.Context, call *fetching) {
-	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+// refresh fetches the key set for call, within requestTimeout, and records its outcome.
+func (v *Verifier) refresh(ctx context.Context, call *flight[*jose.JSONWebKeySet]) {
+	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 	keys, err := v.fetch(ctx)
 
@@ -232,9 +224,8 @@ func (v *Verifier) refresh(ctx context.Context, call *fetching) {
 	v.lastAttempt = time.Now()
 	v.lastFailed = err != nil
 	v.inFlight = nil
-	call.keys, call.err = keys, err
 	v.mu.Unlock()
-	close(call.done)
+	call.land(keys, err)
 }
 
 // find returns the public key that kid names in keys, or nil.

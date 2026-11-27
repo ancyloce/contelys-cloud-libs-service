@@ -5,6 +5,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -19,6 +21,7 @@ import (
 type service struct {
 	pool    *pgxpool.Pool
 	handler http.Handler
+	id      *identitytest.Identity
 	key     identitytest.Key
 }
 
@@ -29,7 +32,7 @@ func newService(t *testing.T) *service {
 	key := identitytest.NewKey(t, "workload-2026-11")
 	id.Publish(key)
 	verifier := tokens.New(tokens.Options{KeySet: id.KeySet(), Client: http.DefaultClient, Deployable: "projects"})
-	return &service{pool: pool, handler: barrier.Handler(pool, verifier), key: key}
+	return &service{pool: pool, handler: barrier.Handler(pool, verifier), id: id, key: key}
 }
 
 // below checks a write of the principal at version 3, as a test of what is installed.
@@ -158,4 +161,42 @@ func TestAnInstallationThatCannotCommitIsAnsweredUnavailable(t *testing.T) {
 
 	refused(t, s.put(t, identity, "principal", principal, `{"minimumAuthorityVersion":4}`),
 		http.StatusServiceUnavailable, "unavailable")
+}
+
+func TestOrganizationAccessInstallsAMembershipsMinimumWithATokenThatItsHolderRequested(t *testing.T) {
+	s := newService(t)
+	s.id.Register("organization-access", "s3cret")
+	s.id.Grant(s.key, "organization-access", "projects", "installMinimumAuthorityVersion")
+	secretFile := filepath.Join(t.TempDir(), "workload-secret")
+	if err := os.WriteFile(secretFile, []byte("s3cret\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	holder, err := tokens.NewHolder(tokens.HolderOptions{
+		WorkloadTokens: s.id.WorkloadTokens(), Client: http.DefaultClient,
+		Deployable: "organization-access", SecretFile: secretFile,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	projects := httptest.NewServer(s.handler)
+	t.Cleanup(projects.Close)
+
+	request, err := http.NewRequest(http.MethodPut, projects.URL+"/internal/v1/minimum-authority-versions/membership/"+membership,
+		strings.NewReader(`{"minimumAuthorityVersion":4}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := (&http.Client{Transport: holder.Transport("projects", nil)}).Do(request)
+	if err != nil {
+		t.Fatalf("the installation was not sent: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent {
+		t.Fatalf("the installation answered %d, want 204", response.StatusCode)
+	}
+	write := barrier.AuthorityVersion{Kind: barrier.Membership, ID: membership, Version: 3}
+	if err := check(t, s.pool, write); !errors.Is(err, barrier.ErrRevoked) {
+		t.Errorf("a write of the membership at version 3 after the installation = %v, want ErrRevoked", err)
+	}
 }
